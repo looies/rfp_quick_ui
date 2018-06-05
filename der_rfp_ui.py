@@ -4,7 +4,7 @@ from tkinter import PhotoImage
 from tkinter import font
 from tkinter import StringVar
 from tkinter import filedialog
-
+from ftplib import FTP
 
 
 #
@@ -16,6 +16,13 @@ from tkinter import filedialog
 
 
 g_font = ('Arial', 12)
+
+
+
+
+
+
+
 
 
 # 最底層的root
@@ -69,49 +76,75 @@ class Menu(tk.Menu):
         parent.config(menu=self)
 
 
+class ConnectionPm:
+    def __init__(self):
+        self._server_ip = None
+    @property
+    def server_ip(self):
+        return self._server_ip
+
+    @server_ip.setter
+    def set_server_ip(self, value):
+        try:
+            self._server_ip = str(value)
+        except:
+            print('Type Error')
+
+
+
+
+
+
+
+
 class LoadFocData:
     def __init__(self):
         self.ask_info_ui()
 
+
+
     def ask_info_ui(self):
         g_font = ('Arial', 12)
-        root = tk.Tk()
+        self.root = tk.Tk()
 
-        ip_label = tk.Label(root, text='IP', font=g_font)
-        ip_label.grid(row=0, column=0)
+        # 連線使用的變數
 
-        ip_entry = tk.Entry(root)
-        ip_entry.grid(row=0, column=1)
 
-        path_label = tk.Label(root, text='FOC 位置:', font=g_font)
-        path_label.grid(row=1, column=0)
+        self.ip_label = tk.Label(self.root, text='IP', font=g_font)
+        self.ip_label.grid(row=0, column=0)
 
-        path_entry = tk.Entry(root)
-        path_entry.grid(row=1, column=1)
+        self.ip_entry = tk.Entry(self.root)
+        self.ip_entry.grid(row=0, column=1)
 
-        user_label = tk.Label(root, text='user', font=g_font)
-        user_label.grid(row=2, column=0)
+        self.path_label = tk.Label(self.root, text='FOC 位置:', font=g_font)
+        self.path_label.grid(row=1, column=0)
 
-        user_entry = tk.Entry(root)
-        user_entry.grid(row=2, column=1)
+        self.path_entry = tk.Entry(self.root)
+        self.path_entry.grid(row=1, column=1)
 
-        psw_label = tk.Label(root, text='password', font=g_font)
-        psw_label.grid(row=3, column=0)
+        self.user_label = tk.Label(self.root, text='user', font=g_font)
+        self.user_label.grid(row=2, column=0)
 
-        psw_entry = tk.Entry(root)
-        psw_entry.grid(row=3, column=1)
+        self.user_entry = tk.Entry(self.root)
+        self.user_entry.grid(row=2, column=1)
 
-        savepath_label = tk.Label(root, text='存檔位置', font=g_font)
-        savepath_label.grid(row=4, column=0)
+        self.psw_label = tk.Label(self.root, text='password', font=g_font)
+        self.psw_label.grid(row=3, column=0)
 
-        savepath_entry = tk.Entry(root)
-        savepath_entry.grid(row=4, column=1)
+        self.psw_entry = tk.Entry(self.root)
+        self.psw_entry.grid(row=3, column=1)
 
-        browse_btn = tk.Button(root, text='瀏覽', command=self.ask_file_save_path)
-        browse_btn.grid(row=4, column=2)
+        self.savepath_label = tk.Label(self.root, text='存檔位置', font=g_font)
+        self.savepath_label.grid(row=4, column=0)
 
-        ok_button = tk.Button(root, text='OK', font=g_font)
-        ok_button.grid(row=5, columnspan=2)
+        self.savepath_entry = tk.Entry(self.root)
+        self.savepath_entry.grid(row=4, column=1)
+
+        self.browse_btn = tk.Button(self.root, text='瀏覽', command=self.ask_file_save_path)
+        self.browse_btn.grid(row=4, column=2)
+
+        self.ok_button = tk.Button(self.root, text='OK', font=g_font, command = self.get_mas)
+        self.ok_button.grid(row=5, columnspan=2)
 
         root.mainloop()
 
@@ -120,9 +153,19 @@ class LoadFocData:
                                            filetypes=(("Mas File", "*.mas"), ("Text File", "*.txt")), title="請選擇本機存檔路徑")
         print(ask)
 
+    # TODO:各欄位的檢查，以及不合理值的檢查，路徑檢查
+    def get_mas(self):
 
+        ftp = FTP(self.ip_entry.get())
+        ftp.login(self.user_entry.get(),'')
+        ftp.cwd(self.path_entry.get())
+        # print(ftp.pwd())
+        file = open(self.savepath_entry.get(), 'wb')
+        ftp.retrbinary('RETR '+ str(self.psw_entry.get()), file.write)
 
+        file.close()
 
+        self.root.destroy()
 
 
 
