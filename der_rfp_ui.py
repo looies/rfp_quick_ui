@@ -157,11 +157,11 @@ class LoadFocData:
     def get_mas(self):
 
         ftp = FTP(self.ip_entry.get())
-        ftp.login(self.user_entry.get(),'')
-        ftp.cwd(self.path_entry.get())
+        ftp.login(self.user_entry.get(),self.psw_entry.get())
+        ftp.cwd('/'.join(self.path_entry.get().split('/')[:-1]))
         # print(ftp.pwd())
-        file = open(self.savepath_entry.get(), 'wb')
-        ftp.retrbinary('RETR '+ str(self.psw_entry.get()), file.write)
+        file = open(self.savepath_entry.get()+self.path_entry.get().split('/')[-1], 'wb')
+        ftp.retrbinary('RETR '+ str(self.path_entry.get().split('/')[-1]), file.write)
 
         file.close()
 
