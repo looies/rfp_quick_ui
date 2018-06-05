@@ -3,6 +3,7 @@ from tkinter import ttk
 from tkinter import PhotoImage
 from tkinter import font
 from tkinter import StringVar
+from tkinter import filedialog
 
 
 
@@ -61,20 +62,63 @@ class Menu(tk.Menu):
         self.add_cascade(label="編輯", menu=edimenu)
 
         loadingmenu = tk.Menu(parent, tearoff = 0)
-        loadingmenu.add_command(label="從 FOC")
+        loadingmenu.add_command(label="從 FOC", command = LoadFocData)
         loadingmenu.add_command(label="從 NDB")
         self.add_cascade(label = '讀資料庫', menu = loadingmenu )
-
-
-
-
-
-
-
 
         parent.config(menu=self)
 
 
+class LoadFocData:
+    def __init__(self):
+        self.ask_info_ui()
+
+    def ask_info_ui(self):
+        g_font = ('Arial', 12)
+        root = tk.Tk()
+
+        ip_label = tk.Label(root, text='IP', font=g_font)
+        ip_label.grid(row=0, column=0)
+
+        ip_entry = tk.Entry(root)
+        ip_entry.grid(row=0, column=1)
+
+        path_label = tk.Label(root, text='FOC 位置:', font=g_font)
+        path_label.grid(row=1, column=0)
+
+        path_entry = tk.Entry(root)
+        path_entry.grid(row=1, column=1)
+
+        user_label = tk.Label(root, text='user', font=g_font)
+        user_label.grid(row=2, column=0)
+
+        user_entry = tk.Entry(root)
+        user_entry.grid(row=2, column=1)
+
+        psw_label = tk.Label(root, text='password', font=g_font)
+        psw_label.grid(row=3, column=0)
+
+        psw_entry = tk.Entry(root)
+        psw_entry.grid(row=3, column=1)
+
+        savepath_label = tk.Label(root, text='存檔位置', font=g_font)
+        savepath_label.grid(row=4, column=0)
+
+        savepath_entry = tk.Entry(root)
+        savepath_entry.grid(row=4, column=1)
+
+        browse_btn = tk.Button(root, text='瀏覽', command=self.ask_file_save_path)
+        browse_btn.grid(row=4, column=2)
+
+        ok_button = tk.Button(root, text='OK', font=g_font)
+        ok_button.grid(row=5, columnspan=2)
+
+        root.mainloop()
+
+    def ask_file_save_path(self):
+        ask = filedialog.asksaveasfilename(initialdir=r"Desktop",
+                                           filetypes=(("Mas File", "*.mas"), ("Text File", "*.txt")), title="請選擇本機存檔路徑")
+        print(ask)
 
 
 
