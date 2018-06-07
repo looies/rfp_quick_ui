@@ -1,10 +1,13 @@
 import tkinter as tk
 from tkinter import ttk
-from tkinter import PhotoImage
+from tkinter import PhotoImage, messagebox
 from tkinter import font
 from tkinter import StringVar
 from tkinter import filedialog
 from ftplib import FTP
+import os
+import re
+from rfp_ui import mas_parse as ms
 
 
 #
@@ -20,9 +23,8 @@ g_font = ('Arial', 12)
 
 
 
-
-
-
+class ConnectError(Exception):
+    pass
 
 
 # 最底層的root
@@ -108,7 +110,7 @@ class LoadFocData:
         self.root = tk.Tk()
 
         # 連線使用的變數
-
+        # self.spath = tk.StringVar()
 
         self.ip_label = tk.Label(self.root, text='IP', font=g_font)
         self.ip_label.grid(row=0, column=0)
@@ -134,38 +136,100 @@ class LoadFocData:
         self.psw_entry = tk.Entry(self.root)
         self.psw_entry.grid(row=3, column=1)
 
-        self.savepath_label = tk.Label(self.root, text='存檔位置', font=g_font)
-        self.savepath_label.grid(row=4, column=0)
-
-        self.savepath_entry = tk.Entry(self.root)
-        self.savepath_entry.grid(row=4, column=1)
-
-        self.browse_btn = tk.Button(self.root, text='瀏覽', command=self.ask_file_save_path)
-        self.browse_btn.grid(row=4, column=2)
+        # self.savepath_label = tk.Label(self.root, text='存檔位置', font=g_font)
+        # self.savepath_label.grid(row=4, column=0)
+        #
+        # self.savepath_entry = tk.Entry(self.root)
+        # self.savepath_entry.grid(row=4, column=1)
+        #
+        # self.browse_btn = tk.Button(self.root, text='瀏覽', command=self.ask_file_save_path)
+        # self.browse_btn.grid(row=4, column=2)
 
         self.ok_button = tk.Button(self.root, text='OK', font=g_font, command = self.get_mas)
         self.ok_button.grid(row=5, columnspan=2)
 
         root.mainloop()
 
-    def ask_file_save_path(self):
-        ask = filedialog.asksaveasfilename(initialdir=r"Desktop",
-                                           filetypes=(("Mas File", "*.mas"), ("Text File", "*.txt")), title="請選擇本機存檔路徑")
-        print(ask)
+    # def ask_file_save_path(self):
+    #     ask = filedialog.asksaveasfilename(initialdir=r"Desktop",
+    #                                        filetypes=(("Mas File", "*.mas"), ("All File", "*.*")), title="請選擇本機存檔路徑")
+    #     self.spath.set(ask)
+    #     print(ask)
 
-    # TODO:各欄位的檢查，以及不合理值的檢查，路徑檢查
+
+
+
     def get_mas(self):
+        def connect_error():
+            tk.messagebox.showerror(title= 'Error', message='連線錯誤，請重新確認您輸入的IP或帳密')
+        def mas_path_error():
+            tk.messagebox.showerror(title= 'Error', message='MAS 路徑有誤，請以「/home*」為開頭')
+        def file_error():
+            tk.messagebox.showerror(title= 'Error', message='此路徑下沒有您指定的檔案，請重新輸入')
 
-        ftp = FTP(self.ip_entry.get())
-        ftp.login(self.user_entry.get(),self.psw_entry.get())
-        ftp.cwd('/'.join(self.path_entry.get().split('/')[:-1]))
-        # print(ftp.pwd())
-        file = open(self.savepath_entry.get()+self.path_entry.get().split('/')[-1], 'wb')
-        ftp.retrbinary('RETR '+ str(self.path_entry.get().split('/')[-1]), file.write)
+        # 先確認連線
+        # try:
+        ftp = FTP(self.ip_entry.get(), timeout =5)
+        ftp.login(str.lower(self.user_entry.get()),self.psw_entry.get())
 
-        file.close()
 
-        self.root.destroy()
+        # 連線OK，確認路徑
+        if str(self.path_entry.get())[:5] == '/home':
+            ftp.cwd(str.lower('/'.join(self.path_entry.get().split('/')[:-1])))
+
+
+            filelst = []
+            ftp.retrlines('LIST' , filelst.append)
+            flag = False
+            for f in filelst:
+                if f.split()[-1] == self.path_entry.get().split('/')[-1]:
+                    flag = True
+                    break
+                else:
+                    flag = False
+
+            if flag == True:
+                file = open(os.path.expanduser("~\桌面") + '\\' + self.path_entry.get().split('/')[-1], 'wb')
+                ftp.retrbinary('RETR ' + str(self.path_entry.get().split('/')[-1]), file.write)
+                file.close()
+
+                tmp = []
+                aa  = ms.showcol(os.path.expanduser("~\桌面") + '\\' + self.path_entry.get().split('/')[-1], 1)
+                for i in aa:
+                    tmp.append([aa[4],aa[3],aa[5],aa[6]])
+
+                MasData.data = tmp
+                print(MasData.data)
+
+
+
+
+
+                self.root.destroy()
+
+            else:
+                file_error()
+        else:
+            ConnectError()
+            mas_path_error()
+        # except:
+        #     ConnectError()
+        #     connect_error()
+
+
+class MasData:
+    def __init__(self, data):
+        self.data = data
+
+    # @property
+    # def data(self):
+    #     return self._data
+    #
+    # @data.setter
+    # def data(self, new_data):
+    #     self._data = new_data
+
+
 
 
 
@@ -188,7 +252,7 @@ class ColumnNotebook(ttk.Notebook):
 
        addframe = tk.Frame(self)
 
-       dataCol = ('column','pk', 'title')
+       dataCol = ('column','pk', 'title', 'format')
        t = Tree(addframe, dataCol, 'headings')
 
 
@@ -199,13 +263,18 @@ class ColumnNotebook(ttk.Notebook):
 
 
 
-       data = [[ 'WRNT_ID', 'Y', '證券碼'], [ 'WRNT_ID1', 'N', '證券碼(出貨碼)'], [ 'WRNT_OID', 'N', '證券碼(舊碼)'], [ 'WRNT_ID2', 'N', '交易所原始碼'], [ 'ISIN', 'N', '國際證券辯識號碼'], [ 'SEDOL', 'N', 'SEDOL'], [ 'ERASE', 'N', '失敗與否'], [ 'KEYIN1', 'N', '修改日期'], [ 'KEY_HR', 'N', '修改時間'], [ 'CKEYIN', 'N', '更改日期'], [ 'CKEY_HR', 'N', '更改時間'], [ 'BKEYIN', 'N', '更改日期(EVENT_TYPE)'], [ 'BKEY_HR', 'N', '更改時間(EVENT_TYPE)'], [ 'STK_NAME', 'N', 'TSE簡稱'], [ 'STK_NAME1', 'N', 'TSE簡稱1'], [ 'TSE_ENG', 'N', 'TSE英文簡稱'], [ 'TEJ_F_NAME', 'N', '權證名稱'], [ 'TEJ_NM', 'N', 'TEJ簡稱'], [ 'STK_ENG', 'N', '英文名稱'], [ 'STK_NAME_NEW', 'N', 'TSE簡稱(建檔用)'], [ 'STK_NAME1_NEW', 'N', 'TSE簡稱1(建檔用)'], [ 'TSE_ENG_NEW', 'N', 'TSE英文簡稱(建檔'], [ 'TEJ_F_NAME_N', 'N', '權證名稱(建檔用)'], [ 'TEJ_NM_NEW', 'N', 'TEJ簡稱(建檔用)'], [ 'STK_ENG_NEW', 'N', '英文名稱(建檔用)'], [ 'MKT', 'N', '市場別'], [ 'IND_BAN', 'N', '發行券商統編'], [ 'DATA_D', 'N', '發行公告日'], [ 'ZISS_D', 'N', '發行日'], [ 'ZMAT_D', 'N', '到期日'], [ 'TERM_M', 'N', '存續期間(月)'], [ 'ZLST_D_N', 'N', '上市公告日'], [ 'ZLST_D', 'N', '上市日期'], [ 'ALST_D', 'N', '實際上市日'], [ 'DLIST_D', 'N', '下市日'], [ 'ZPRE_D', 'N', '預計到期日'], [ 'ZLTRADE_D', 'N', '最後交易日'], [ 'ZLTRADE_D1', 'N', '預計最後交易日'], [ 'ZBEGIN_D', 'N', '履約開始日'], [ 'ZEND_D', 'N', '履約結束日'], [ 'TMAT_D', 'N', '到期日YT'], [ 'TDLIST_D', 'N', '下市日YT'], [ 'TPRE_D', 'N', '預計到期日YT'], [ 'TLTRADE_D', 'N', '最後交易日YT'], [ 'TLTRADE_D1', 'N', '預計最後交易日YT'], [ 'TBEGIN_D', 'N', '履約開始日YT'], [ 'TEND_D', 'N', '履約結束日YT'], [ 'YESNO', 'N', '是否已上市'], [ 'WAR_TYPE', 'N', '認購權證種類'], [ 'WAR_DER', 'N', '權證衍生種類'], [ 'WAR_DERD', 'N', '權證細種類'], [ 'C_P_TYPE', 'N', '認購(售)權證'], [ 'ST_PTF', 'N', '個股/組合'], [ 'SCNT', 'N', '標的數'], [ 'SETTLE', 'N', '履約方式'], [ 'ISS_CUR', 'N', '發行掛牌幣別'], [ 'ISS_EX', 'N', '發行匯率'], [ 'ISS_SIZE', 'N', '發行單位(千股)'], [ 'ISS_AMT', 'N', '發行總額(千元)'], [ 'X_ISSAMT', 'N', '發行總額(元)元大'], [ 'ISS_PRC', 'N', '發行價格(元)'], [ 'LST_PRC', 'N', '上市掛牌價(元)'], [ 'EX_CUR', 'N', '履約幣別'], [ 'ST_EX', 'N', '結算匯率'], [ 'PERCENT', 'N', '發行溢價'], [ 'EX_PRICE', 'N', '發行時履約價(元)'], [ 'EX_PCT', 'N', '價外發行%'], [ 'P_UP', 'N', '上限價格'], [ 'P_DOWN', 'N', '下限價格'], [ 'UP%', 'N', '上下限價履約價比'], [ 'P_SEC', 'N', '流動量提供券商'], [ 'P_WAY', 'N', '履行報價方式'], [ 'MAX_SIZE', 'N', '最大升降單位'], [ 'MIN_PRC', 'N', '履行責任最低價格'], [ 'PREDUE', 'N', '是否提前下市'], [ 'DUEREASON', 'N', '提前下市理由'], [ 'FOREIGN', 'N', '外資可否投資'], [ 'FOREIGN1', 'N', '外資採證券給付'], [ 'BROKCODE', 'N', '發行人委任券商'], [ 'INTEREST_R', 'N', '發行日利率'], [ 'FINANCE_R', 'N', '財務費用率'], [ 'FINANCE_C', 'N', '發行財務費用'], [ 'ISSVOLT', 'N', '發行日定價波動率'], [ 'ISSVOLT1', 'N', 'ISSVOLT1_TEJ'], [ 'RESETBEG', 'N', '重設期間起日'], [ 'RESETEND', 'N', '重設期間迄日'], [ 'RESETAVG', 'N', '重設計算均價日數'], [ 'RESET_UP', 'N', '重設百分比上限'], [ 'RESET_LO', 'N', '重設百分比下限'], [ 'RESETDAY', 'N', '重設生效日'], [ 'RE_BD', 'N', '上市幾日重設起日'], [ 'RE_ED', 'N', '上市幾日重設迄日'], [ 'RE_DATE', 'N', '上市幾日重設生效'], [ 'RESETFG', 'N', '有無重設'], [ 'RMK', 'N', '備註說明'], [ 'PAR', 'N', '面額'], [ 'STK_TYPE', 'N', '證券別'], [ 'TRADE_P', 'N', '標的證券市場'], [ 'CURR', 'N', '幣別'], [ 'CHGDATE', 'N', '換市場/換碼日'], [ 'DOER', 'N', '建檔者'], [ 'DOER1', 'N', '修改者'], [ 'WRSET', 'N', '權證結算價'], [ 'WRSETD', 'N', '權證交割日'], [ 'TEJ_FP_ID', 'N', 'NDB金融商品碼'], [ 'FPID_NKEYIN', 'N', 'NDB金融商品碼新增日'], [ 'FPID_NKEYHR', 'N', 'NDB金融商品碼新增時間'], [ 'FPID_KEYIN', 'N', 'NDB金融商品碼異動日'], [ 'FPID_KEYHR', 'N', 'NDB金融商品碼異動時間'], [ 'TYPE', 'Y', '事件別'], [ 'ZCVT_DD', 'N', '日期'], [ 'CO_ID16', 'N', '證券碼16'], [ 'CO_ID', 'N', '證券碼'], [ 'STK_CUR', 'N', '標的幣別'], [ 'ZEND_DD', 'N', '標的股價日期'], [ 'CL_PRC', 'N', '標的股價'], [ 'SHARE', 'N', '行使比例(股數)'], [ 'EXX_CUR', 'N', '履約幣別'], [ 'L_EX_PRC', 'N', '履約價格'], [ 'L_P_UP', 'N', '上限價格'], [ 'L_P_DOWN', 'N', '下限價格'], [ 'REASON', 'N', '調整原因'], [ 'DATA_D2', 'N', '事件公告日'], [ 'K_EVENT2', 'N', '資料日期'], [ 'KEY_HR2', 'N', '資料時間'], [ 'DOER2', 'N', '建檔者'], [ 'DOER3', 'N', '修改者'], [ 'OD1', 'Y', '次序'], [ 'TXT', 'N', '說明'], [ 'EVENT_TYPE', 'Y', '事件別'], [ 'BCO_ID16', 'N', '證券碼16'], [ 'BCO_ID', 'N', '證券碼'], [ 'BK_TRADE1', 'N', '交易起日'], [ 'BK_TRADE2', 'N', '交易迄日'], [ 'KEYIN3', 'N', '異動日'], [ 'KEY_HR3', 'N', '異動時'], [ 'ISSOD', 'Y', '發行次數'], [ 'AISS_D', 'N', '增發日期'], [ 'AISS_SIZE', 'N', '增發數量（千股）'], [ 'AISS_AMT', 'N', '增發金額（千元）'], [ 'AISS_PRC', 'N', '增發價格(元)'], [ 'KEYIN4', 'N', '異動日'], [ 'KEY_HR4', 'N', '異動時'],['','','']]
+
 
        # 填入data
-       for item in data:
-           k = 0
+
+       MasData.data = []
+       idata = MasData.data
+       for item in idata:
            t.insert('', 'end', values=item)
-           k+=1
+
+
+
+
        t.bind("<<TreeviewSelect>>", t.get_selection_value)
 
 
@@ -256,6 +325,11 @@ class ColumnNotebook(ttk.Notebook):
        k = tk.Frame(self)
        self.add(k, text='tab2')
        tk.Button(k, text='tt', command=self.addtab).pack(side=tk.BOTTOM)
+
+
+
+
+
 
 class Tree(ttk.Treeview):
     def __init__(self, parent, columns, show):
